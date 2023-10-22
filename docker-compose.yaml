@@ -1,0 +1,72 @@
+version: "3.8"
+
+services:
+  app:
+    container_name: store_app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - db_postgres
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      DD_AGENT_HOST: dd-agent
+      DD_TRACE_AGENT_PORT: 8126
+      DD_RUNTIME_METRICS_ENABLED: true
+      DD_LOGS_INJECTION: true
+      DD_SERVICE: store-app
+      DD_ENV: development
+      DD_VERSION: 1.0.0
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "csharp", "service": "store-app", "log_processing_rules": [{"type": "multi_line", "name": "log_start_with_date", "pattern" : "\\d{4}-(0?[1-9]|1[012])-(0?[1-9]|[12][0-9]|3[01])"}]}]'
+    networks:
+      - storeapp-network
+
+  db_postgres:
+    container_name: db_postgres
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+    ports:
+      - 5432:5432
+    volumes:
+      - .docker/postgresql:/var/lib/postgresql
+    networks:
+      - storeapp-network
+
+  redis:
+    container_name: redis
+    image: redis:7-alpine
+    ports:
+      - 6379:6379
+    volumes:
+      - .docker/redis/data:/data
+    networks:
+      - storeapp-network
+
+  dd-agent:
+    container_name: dd-agent
+    image: datadog/agent:latest
+    environment:
+      DD_API_KEY: <DATADOG_API_KEY>
+      DD_SITE: <DATADOG_SITE> # defaults to datadoghq.com
+      DD_APM_ENABLED: true
+      DD_DOGSTATSD_NON_LOCAL_TRAFFIC: true
+      DD_LOGS_ENABLED: true # for log collector
+      DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL: true
+      DD_CONTAINER_EXCLUDE_LOGS: name:dd-agent
+    volumes: 
+      - /var/run/docker.sock:/var/run/docker.sock:ro 
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro # for log collector
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+      - /opt/datadog-agent/run:/opt/datadog-agent/run:rw # for log collector
+    networks:
+      - storeapp-network
+
+networks:
+  storeapp-network:

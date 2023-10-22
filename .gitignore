@@ -1,0 +1,7 @@
+# VS Code directories
+.vscode/
+
+.docker/
+
+bin/
+obj/
